@@ -330,6 +330,179 @@
       (setf (quadtree-node object) nil)
       (quadtree-insert object quadtree))))
 
+;;; Geometry utilities
+
+(defgeneric bounding-box (object)
+  (:documentation 
+   "Return the bounding-box of this OBJECT as multiple values.
+  The proper VALUES ordering is (TOP LEFT RIGHT BOTTOM), which could
+  also be written (Y X (+ X WIDTH) (+ Y HEIGHT)) if more convenient."))
+
+(defmethod bounding-box ((quadrille quadrille))
+  "Return this object's bounding box as multiple values.
+  The order is (TOP LEFT RIGHT BOTTOM)."
+  (with-slots (x y width height) quadrille
+    (values 
+     (cfloat y)
+     (cfloat x)
+     (cfloat (+ x width))
+     (cfloat (+ y height)))))
+
+(defmethod bounding-box* ((quadrille quadrille))
+  (multiple-value-bind (top left right bottom) (bounding-box quadrille)
+    (values left top (- right left) (- bottom top))))
+
+(defmethod center-point ((quadrille quadrille))
+  (multiple-value-bind (top left right bottom)
+      (the (values float float float float) (bounding-box quadrille))
+    (let ((half (cfloat 0.5)))
+      (declare (single-float half top left right bottom) (optimize (speed 3)))
+      (values (* half (+ left right))
+	      (* half (+ top bottom))))))
+
+(defmethod heading-to-thing2 ((self quadrille) thing)
+  (multiple-value-bind (x1 y1) (center-point thing)
+    (multiple-value-bind (x0 y0) (center-point self)
+      (find-heading x0 y0 x1 y1))))
+
+(defmethod heading-to-thing ((self quadrille) thing)
+  (with-slots (x y) self 
+    (multiple-value-bind (x0 y0) (center-point thing)
+      (find-heading x y x0 y0))))
+
+(defmethod heading-between ((self quadrille) thing)
+  (multiple-value-bind (x y) (center-point self)
+    (multiple-value-bind (x0 y0) (center-point thing)
+      (find-heading x y x0 y0))))
+
+(defmethod aim-at  ((self quadrille) node)
+  (setf (heading self) (heading-between self node)))
+
+(defmethod aim  ((self quadrille) heading)
+  (assert (numberp heading))
+  (setf (heading self) heading))
+
+(defmethod distance-between  ((self quadrille) (thing quadrille))
+  (multiple-value-bind (x0 y0) (center-point self)
+    (multiple-value-bind (x y) (center-point thing)
+      (distance x0 y0 x y))))
+
+;;; Collision geometry tests
+
+(defun rectangle-in-rectangle-p (x y width height o-top o-left o-width
+				 o-height)
+  (declare (single-float x y width height o-top o-left o-width o-height)
+	   (optimize (speed 3)))
+  (not (or 
+	;; is the top below the other bottom?
+	(<= (+ o-top o-height) y)
+	;; is bottom above other top?
+	(<= (+ y height) o-top)
+	;; is right to left of other left?
+	(<= (+ x width) o-left)
+	;; is left to right of other right?
+	(<= (+ o-left o-width) x))))
+
+(defmethod colliding-with-rectangle-p ((self quadrille) o-top o-left o-width o-height)
+  ;; you must pass arguments in Y X order since this is TOP then LEFT
+  (multiple-value-bind (x y width height) (bounding-box* self)
+    (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height) 
+			      (cfloat o-top) (cfloat o-left) (cfloat o-width) (cfloat o-height))))
+
+(defun colliding-with-bounding-box-p (self top left right bottom)
+  ;; you must pass arguments in Y X order since this is TOP then LEFT
+  (multiple-value-bind (x y width height) (bounding-box* self)
+    (when (and width height)
+      (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height)
+				top left (- right left) (- bottom top)))))
+
+(defgeneric colliding-with-p (this that)
+  (:documentation 
+   "Return non-nil when bounding boxes of THIS and THAT are colliding."))
+
+(defmethod colliding-with-p ((self quadrille) (thing quadrille))
+  (multiple-value-bind (top left right bottom) 
+      (bounding-box thing)
+    (colliding-with-bounding-box-p self top left right bottom)))
+
+;;; Movement
+
+;; Because an object's bounding box determines its position in the
+;; quadtree, we must delete and then re-insert that object whenever its
+;; size or position changes. See also "Quadtrees" above.
+
+(defmethod move-to ((node quadrille) x0 y0 &optional z0)
+  (with-slots (x y z) node
+    (setf x x0 y y0)
+    (when z (setf z z0)))
+  (update-bounding-box node *quadtree*)
+  nil)
+
+(defmethod resize ((quadrille quadrille) width height)
+  (quadtree-delete-maybe quadrille (quadtree-node quadrille))
+  (setf (height quadrille) height)
+  (setf (width quadrille) width)
+  (quadtree-insert-maybe quadrille (quadtree-node quadrille)) nil)
+
+;;; All the other movement and resize functions are based on MOVE-TO and
+;; RESIZE, so the quadtree data are maintained properly.
+
+(defun step-coordinates (x y heading &optional (distance 1))
+  "Return as multiple values the coordinates of the point DISTANCE
+    units away from X,Y in the direction given by HEADING."
+  (values (+ x (* distance (cos heading)))
+	  (+ y (* distance (sin heading)))))
+
+(defmethod step-toward-heading ((self quadrille) heading &optional (distance 1))
+  (multiple-value-bind (x y) (center-point self)
+    (step-coordinates x y heading distance)))
+
+(defmethod move  ((self quadrille) heading distance)
+  (with-slots (x y) self
+    (multiple-value-bind (x0 y0) (step-coordinates x y heading distance)
+      (move-to self x0 y0))))
+
+(defmethod forward  ((self quadrille) distance)
+  (move self (heading self) distance))
+
+(defmethod backward  ((self quadrille) distance)
+  (move self (opposite-heading (heading self)) distance))
+
+(defmethod move-toward ((self quadrille) direction &optional (steps 1))
+  (with-slots (x y) self
+    (multiple-value-bind (x0 y0)
+	(step-in-direction x y (or direction :up) (or steps 5))
+      (move-to self x0 y0))))
+
+(defmethod turn-left ((self quadrille) radians)
+  (decf (heading self) radians))
+
+(defmethod turn-right ((self quadrille) radians)
+  (incf (heading self) radians))
+
+;;; Tracking pre-collision locations
+
+;; This makes it easy to undo movements that led to collisions.
+
+(defmethod save-location ((quadrille quadrille))
+  (with-slots (x y z last-x last-y last-z) quadrille
+    (setf last-x x
+	  last-y y
+	  last-z z)))
+
+(defmethod clear-saved-location ((quadrille quadrille))
+  (with-slots (last-x last-y last-z) quadrille
+    (setf last-x nil last-y nil last-z nil)))
+
+(defmethod restore-location ((quadrille quadrille))
+  (with-slots (x y z last-x last-y last-z quadtree-node) quadrille
+    (when last-x
+      (quadtree-delete-maybe quadrille quadtree-node)
+      (setf x last-x
+	    y last-y
+	    z last-z)
+      (quadtree-insert-maybe quadrille quadtree-node))))
+
 ;;; Responding to collisions
 
 ;; The main method for an object's collision response is [[file:dictionary/COLLIDE.html][COLLIDE]].

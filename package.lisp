@@ -9,25 +9,40 @@
    *quadtree*
    *quadtree-depth*
    address-to-waypoint
+   aim
+   aim-at
+   bounding-box
    bounding-box-contains
    build-quadtree
+   center-point
    cfloat
+   clear-saved-location
    collide
    collide-objects
    collide-objects*
+   colliding-with-bounding-box-p
    colliding-with-p
+   colliding-with-p
+   colliding-with-rectangle-p
    collision-type
    create-path
+   distance-between
    find-path
    find-path-waypoints
+   forward
    handle-collision
    heading
+   heading-between
+   heading-to-thing
    height
    last-x
    last-y
    last-z
    leafp
    make-quadtree
+   move
+   move-to
+   move-toward
    obstructed
    path
    path-finder
@@ -44,6 +59,14 @@
    quadtree-node
    quadtree-process
    quadtree-search
+   rectangle-in-rectangle-p
+   resize
+   restore-location
+   save-location
+   step-coordinates
+   step-toward-heading
+   turn-left
+   turn-right
    update-bounding-box
    valid-bounding-box-p
    width
