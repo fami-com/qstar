@@ -68,44 +68,6 @@
 	   (>= right0 right1)
 	   (>= bottom0 bottom1)))))
 
-;;; Collision geometry tests
-
-(defun rectangle-in-rectangle-p (x y width height o-top o-left o-width
-				 o-height)
-  (declare (single-float x y width height o-top o-left o-width o-height)
-	   (optimize (speed 3)))
-  (not (or 
-	;; is the top below the other bottom?
-	(<= (+ o-top o-height) y)
-	;; is bottom above other top?
-	(<= (+ y height) o-top)
-	;; is right to left of other left?
-	(<= (+ x width) o-left)
-	;; is left to right of other right?
-	(<= (+ o-left o-width) x))))
-
-(defmethod colliding-with-rectangle-p ((self quadrille) o-top o-left o-width o-height)
-  ;; you must pass arguments in Y X order since this is TOP then LEFT
-  (multiple-value-bind (x y width height) (bounding-box* self)
-    (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height) 
-			      (cfloat o-top) (cfloat o-left) (cfloat o-width) (cfloat o-height))))
-
-(defun colliding-with-bounding-box-p (self top left right bottom)
-  ;; you must pass arguments in Y X order since this is TOP then LEFT
-  (multiple-value-bind (x y width height) (bounding-box* self)
-    (when (and width height)
-      (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height)
-				top left (- right left) (- bottom top)))))
-
-(defgeneric colliding-with-p (this that)
-  (:documentation 
-   "Return non-nil when bounding boxes of THIS and THAT are colliding."))
-
-(defmethod colliding-with-p ((self quadrille) (thing quadrille))
-  (multiple-value-bind (top left right bottom) 
-      (bounding-box thing)
-    (colliding-with-bounding-box-p self top left right bottom)))
-
 ;;; The active quadtree
 
 (defvar *quadtree* nil
@@ -332,6 +294,44 @@
       (setf (quadtree-node object) nil)
       (quadtree-insert object quadtree))))
 
+;;; Collision geometry tests
+
+(defun rectangle-in-rectangle-p (x y width height o-top o-left o-width
+				 o-height)
+  (declare (single-float x y width height o-top o-left o-width o-height)
+	   (optimize (speed 3)))
+  (not (or 
+	;; is the top below the other bottom?
+	(<= (+ o-top o-height) y)
+	;; is bottom above other top?
+	(<= (+ y height) o-top)
+	;; is right to left of other left?
+	(<= (+ x width) o-left)
+	;; is left to right of other right?
+	(<= (+ o-left o-width) x))))
+
+(defmethod colliding-with-rectangle-p ((self quadrille) o-top o-left o-width o-height)
+  ;; you must pass arguments in Y X order since this is TOP then LEFT
+  (multiple-value-bind (x y width height) (bounding-box* self)
+    (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height) 
+			      (cfloat o-top) (cfloat o-left) (cfloat o-width) (cfloat o-height))))
+
+(defun colliding-with-bounding-box-p (self top left right bottom)
+  ;; you must pass arguments in Y X order since this is TOP then LEFT
+  (multiple-value-bind (x y width height) (bounding-box* self)
+    (when (and width height)
+      (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height)
+				top left (- right left) (- bottom top)))))
+
+(defgeneric colliding-with-p (this that)
+  (:documentation 
+   "Return non-nil when bounding boxes of THIS and THAT are colliding."))
+
+(defmethod colliding-with-p ((self quadrille) (thing quadrille))
+  (multiple-value-bind (top left right bottom) 
+      (bounding-box thing)
+    (colliding-with-bounding-box-p self top left right bottom)))
+
 ;;; Geometry utilities
 
 (defgeneric bounding-box (object)
@@ -388,44 +388,6 @@
   (multiple-value-bind (x0 y0) (center-point self)
     (multiple-value-bind (x y) (center-point thing)
       (distance x0 y0 x y))))
-
-;;; Collision geometry tests
-
-(defun rectangle-in-rectangle-p (x y width height o-top o-left o-width
-				 o-height)
-  (declare (single-float x y width height o-top o-left o-width o-height)
-	   (optimize (speed 3)))
-  (not (or 
-	;; is the top below the other bottom?
-	(<= (+ o-top o-height) y)
-	;; is bottom above other top?
-	(<= (+ y height) o-top)
-	;; is right to left of other left?
-	(<= (+ x width) o-left)
-	;; is left to right of other right?
-	(<= (+ o-left o-width) x))))
-
-(defmethod colliding-with-rectangle-p ((self quadrille) o-top o-left o-width o-height)
-  ;; you must pass arguments in Y X order since this is TOP then LEFT
-  (multiple-value-bind (x y width height) (bounding-box* self)
-    (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height) 
-			      (cfloat o-top) (cfloat o-left) (cfloat o-width) (cfloat o-height))))
-
-(defun colliding-with-bounding-box-p (self top left right bottom)
-  ;; you must pass arguments in Y X order since this is TOP then LEFT
-  (multiple-value-bind (x y width height) (bounding-box* self)
-    (when (and width height)
-      (rectangle-in-rectangle-p (cfloat x) (cfloat y) (cfloat width) (cfloat height)
-				top left (- right left) (- bottom top)))))
-
-(defgeneric colliding-with-p (this that)
-  (:documentation 
-   "Return non-nil when bounding boxes of THIS and THAT are colliding."))
-
-(defmethod colliding-with-p ((self quadrille) (thing quadrille))
-  (multiple-value-bind (top left right bottom) 
-      (bounding-box thing)
-    (colliding-with-bounding-box-p self top left right bottom)))
 
 ;;; Movement
 
