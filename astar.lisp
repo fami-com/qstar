@@ -22,6 +22,8 @@
 ;; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ;; SOFTWARE.
 
+(in-package :qstar)
+
 ;;; Pathfinding obstruction declaration 
 
 ;; See the section on Pathfinding below.

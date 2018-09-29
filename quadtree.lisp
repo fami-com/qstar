@@ -22,6 +22,8 @@
 ;; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ;; SOFTWARE.
 
+(in-package :qstar)
+
 ;;; Emacs Lisp compatibility  
 
 ;; The WHILE syntax was used in the original Emacs Lisp version of

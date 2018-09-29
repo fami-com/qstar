@@ -13,7 +13,8 @@
   :description "quadtree-based 2-D collision detection and A-star pathfinding"
   :serial t
   :components ((:file "package")
-	       (:file "quadtree" :depends-on ("package"))
+	       (:file "generics" :depends-on ("package"))
+	       (:file "quadtree" :depends-on ("generics"))
 	       (:file "astar" :depends-on ("package" "quadtree"))))
  
 
