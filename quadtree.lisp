@@ -286,13 +286,14 @@
 ;;; Inserting many objects into a quadtree
 
 (defun quadtree-fill (set quadtree)
-  "Insert the objects in SET (a list or hashtable) into QUADTREE."
-  (let ((objects (etypecase set
-		   (list set)
-		   (hash-table (loop for object being the hash-keys in set collect object)))))
-    (dolist (object objects)
-      (setf (quadtree-node object) nil)
-      (quadtree-insert object quadtree))))
+  "Insert the objects in SET (a list, vector or a hashtable) into QUADTREE."
+  (flet ((insert (object)
+           (setf (quadtree-node object) nil)
+           (quadtree-insert object quadtree)))
+    (etypecase set
+      (list (loop :for object :in set :do (insert object)))
+      (vector (loop :for object :across set :do (insert object)))
+      (hash-table (loop :for object :being :the :hash-keys :in set :do (insert object))))))
 
 ;;; Collision geometry tests
 
